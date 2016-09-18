@@ -1,42 +1,38 @@
-import { Map } from 'immutable';
+import {
+  autoRehydrate as baseAutoRehydrate,
+  createPersistor as baseCreatePersistor,
+  createTransform,
+  getStoredState,
+  persistStore as basePersistStore,
+  purgeStoredState
+} from 'redux-persist';
 
-export const lastStateInit = new Map();
+import immutableTransform from 'redux-persist-transform-immutable'
+import * as operators from './operators';
+import { stateReconciler } from './reconciler';
 
-export function stateIterator(state, callback) {
-  return state.forEach(callback);
+const extendConfig = (config) => {
+  transforms = [...config.transforms, immutableTransform]
+  return {...config, ...operators, stateReconciler, transforms}
 }
 
-export function stateGetter(state, key) {
- return state.get(key)
+const autoRehydrate = (config, ...args) => {
+  return baseAutoRehydrate(extendConfig(config), ...args);
 };
 
-export function stateSetter(state, key, value) {
- return state.set(key, value)
+const createPersistor = (store, config, ...args) => {
+  return baseCreatePersistor(store, extendConfig(config), ...args);
 };
 
-export function stateReconciler(state, inboundState, reducedState, logger) {
- let newState = reducedState ? reducedState : new Map();
+const persistStore = (store, config, ...args) => {
+  return basePersistStore(store, extendConfig(config), ...args);
+};
 
- Object.keys(inboundState).forEach((key) => {
-   // if initialState does not have key, skip auto rehydration
-   if (!state.has(key)) return
-
-   // if reducer modifies substate, skip auto rehydration
-   if (state.get('key') !== reducedState.get('key')) {
-     if (logger) console.log('redux-persist/autoRehydrate: sub state for key `%s` modified, skipping autoRehydrate.', key)
-     newState = newState.set(key, reducedState.get(key))
-     return
-   }
-
-   // otherwise take the inboundState
-   if (state.has(key)) {
-     newState = state.merge(inboundState) // shallow merge
-   } else {
-     newState = state.set(key, inboundState[key]) // hard set
-   }
-
-   if (logger) console.log('redux-persist/autoRehydrate: key `%s`, rehydrated to ', key, newState[key])
- })
-
- return newState
+export {
+  autoRehydrate,
+  createPersistor,
+  createTransform,
+  getStoredState,
+  persistStore,
+  purgeStoredState
 };
